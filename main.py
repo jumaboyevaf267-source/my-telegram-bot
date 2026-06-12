@@ -1,34 +1,20 @@
 import telebot
+import os
 
-# Tokeningizni shu yerga qo'ying
-TOKEN = '8980326952:AAHymvOtsGKmp8PqGUO5lMl89mp90GvU3kk'
+# TOKEN'ni Environment Variable'dan o'qib oladi (Render sozlamalarida kiritganingizdek)
+TOKEN = os.environ.get('TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
-# Kanal username'i
-CHANNEL_ID = "@nj26k"
-
-def check_sub(user_id):
-    try:
-        status = bot.get_chat_member(CHANNEL_ID, user_id)
-        if status.status in ['member', 'administrator', 'creator']:
-            return True
-        return False
-    except:
-        return False
-
+# /start buyrug'i uchun javob
 @bot.message_handler(commands=['start'])
-def start(message):
-    if check_sub(message.chat.id):
-        bot.reply_to(message, "✅ Xush kelibsiz! Botdan foydalanishingiz mumkin.")
-    else:
-        bot.reply_to(message, f"❌ Botdan foydalanish uchun oldin kanalimizga a'zo bo'ling: {CHANNEL_ID}")
+def send_welcome(message):
+    bot.reply_to(message, "Assalomu alaykum! Bot ishga tushdi. Sizga qanday yordam bera olaman?")
 
+# Har qanday boshqa matnli xabarga javob
 @bot.message_handler(func=lambda message: True)
-def all_messages(message):
-    if not check_sub(message.chat.id):
-        bot.reply_to(message, f"⚠️ Bot ishlashi uchun avval kanalimizga a'zo bo'ling: {CHANNEL_ID}")
-    else:
-        bot.reply_to(message, "Siz kanalimiz a'zosisiz! Buyruqlaringizni yuboring.")
+def echo_all(message):
+    bot.reply_to(message, "Siz yozgan xabar: " + message.text)
 
+# Botni uzluksiz ishlash rejimi
 print("Bot ishga tushdi...")
 bot.polling(none_stop=True)
