@@ -12,7 +12,7 @@ app = Flask(__name__)
 def home():
     return "Bot 24/7 rejimda muvaffaqiyatli ishlamoqda!"
 
-TOKEN = "8980326952:AAGlXNx2dcCV_KRW2AtYsJYyptbXz8ShbGQ"
+TOKEN = "8980326952:AAG9PbC08liS9h67I_OMAtgTxFwOURVLYFk"
 IMGBB_API_KEY = "43078f794ef49efa6a8e7ea57a00a0b5"
 
 bot = telebot.TeleBot(TOKEN)
