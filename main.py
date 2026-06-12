@@ -1,7 +1,7 @@
 import telebot
 
 # Tokeningizni shu yerga qo'ying
-TOKEN = '8980326952:AAFo1jeKNcld1JMeyGZ9k3LYLUJpXTSRVyA'
+TOKEN = '8980326952:AAGYkYQ-YZ-FydPaiw0HMG33PY3O2ZNwWDw'
 bot = telebot.TeleBot(TOKEN)
 
 # Kanal username'i
