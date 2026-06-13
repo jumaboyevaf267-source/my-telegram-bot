@@ -3,7 +3,7 @@ import os
 import threading
 from flask import Flask
 
-TOKEN = "8980326952:AAG9PbC08liS9h67I_OMAtgTxFwOURVLYFk"
+TOKEN = "8980326952:AAFcxrGksFGTLQOOvg56mn4CbtKbIJ_BJQs"
 IMGBB_API_KEY = "43078f794ef49efa6a8e7ea57a00a0b5"
 
 bot = telebot.TeleBot(TOKEN)
