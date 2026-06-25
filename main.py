@@ -1,9 +1,11 @@
 import logging
+import asyncio
+import os
 import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 
-# Bot tokeningizni shu yerga aniq kiritib keting
+# Bot tokeningiz
 BOT_TOKEN = "8967874048:AAEbexXemCOrLnQm66_GxQGN4GWW2SeZW_I"
 
 logging.basicConfig(level=logging.INFO)
@@ -36,13 +38,13 @@ async def upload_to_storage(file_bytes: bytes) -> str:
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
     await message.answer(
-        "👋 **Salom! Men rasmlar va GIF-larni doimiy havolaya aylantirib beruvchi botman.**\n\n"
-        "Menga rasm yoki GIF yuboring, men sizga uning linkini taqdim etaman."
+        "👋 **Salom😚! Men rasmlar va GIF-larni doimiy havolaya aylantirib beruvchi botman.**\n\n"
+        "Menga rasm yoki GIF yuboring, men sizga uning linkini taqdim etaman🩵."
     )
 
 @dp.message(F.photo | F.animation | F.document.mime_type.startswith("image/"))
 async def handle_media(message: types.Message):
-    wait_msg = await message.answer("🔄 Fayl xavfsiz serverga yuklanmoqda...")
+    wait_msg = await message.answer("🔄 Fayl serverga yuklanmoqda...")
     
     try:
         if message.photo:
@@ -69,10 +71,27 @@ async def handle_media(message: types.Message):
         logging.error(f"Xatolik: {e}")
         await wait_msg.edit_text("❌ Faylni qayta ishlashda xatolik yuz berdi.")
 
+# Render portini ochish uchun kichik veb-server funksiyasi
+async def handle_web(request):
+    return aiohttp.web.Response(text="Bot is running live!")
+
+async def main():
+    # Veb serverni sozlash (Render muhitidan portni o'qiydi, bo'lmasa 10000)
+    app = aiohttp.web.Application()
+    app.router.add_get("/", handle_web)
+    
+    port = int(os.environ.get("PORT", 10000))
+    runner = aiohttp.web.AppRunner(app)
+    await runner.setup()
+    site = aiohttp.web.TCPSite(runner, "0.0.0.0", port)
+    
+    # Ham veb serverni, ham botni parallel ishga tushiramiz
+    await asyncio.gather(
+        site.start(),
+        bot.delete_webhook(drop_pending_updates=True),
+        dp.start_polling(bot)
+    )
+
 if __name__ == "__main__":
-    import asyncio
-    async def main():
-        await bot.delete_webhook(drop_pending_updates=True)
-        await dp.start_polling(bot)
     asyncio.run(main())
     
