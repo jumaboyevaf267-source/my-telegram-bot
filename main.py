@@ -4,8 +4,9 @@ import os
 import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
+# web qismini o'zgartirdik:
+from aiohttp import web 
 
-# Bot tokeningiz
 BOT_TOKEN = "8967874048:AAEbexXemCOrLnQm66_GxQGN4GWW2SeZW_I"
 
 logging.basicConfig(level=logging.INFO)
@@ -18,11 +19,7 @@ async def upload_to_storage(file_bytes: bytes) -> str:
     form = aiohttp.FormData()
     form.add_field('reqtype', 'fileupload')
     form.add_field('fileToUpload', file_bytes, filename='file.jpg')
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    }
-    
+    headers = {"User-Agent": "Mozilla/5.0"}
     async with aiohttp.ClientSession(headers=headers) as session:
         try:
             async with session.post(url, data=form) as response:
@@ -37,55 +34,34 @@ async def upload_to_storage(file_bytes: bytes) -> str:
 
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
-    await message.answer(
-        "👋 **Salom😚! Men rasmlar va GIF-larni doimiy havolaya aylantirib beruvchi botman.**\n\n"
-        "Menga rasm yoki GIF yuboring, men sizga uning linkini taqdim etaman🩵."
-    )
+    await message.answer("Salom! Menga rasm yuboring.")
 
 @dp.message(F.photo | F.animation | F.document.mime_type.startswith("image/"))
 async def handle_media(message: types.Message):
-    wait_msg = await message.answer("🔄 Fayl serverga yuklanmoqda...")
-    
+    wait_msg = await message.answer("Yuklanmoqda...")
     try:
-        if message.photo:
-            file_id = message.photo[-1].file_id
-        elif message.animation:
-            file_id = message.animation.file_id
-        else:
-            file_id = message.document.file_id
-
+        file_id = message.photo[-1].file_id if message.photo else (message.animation.file_id if message.animation else message.document.file_id)
         file = await bot.get_file(file_id)
         file_bytes = await bot.download_file(file.file_path)
         direct_url = await upload_to_storage(file_bytes.read())
-        
         if direct_url:
-            await wait_msg.edit_text(
-                f"✅ **Muvaffaqiyatli yuklandi!**\n\n"
-                f"🔗 **Havola:** `{direct_url}`",
-                parse_mode="Markdown"
-            )
+            await wait_msg.edit_text(f"✅ Havola: `{direct_url}`", parse_mode="Markdown")
         else:
-            await wait_msg.edit_text("❌ Serverga yuklashda xatolik yuz berdi. Qayta urinib ko'ring.")
-            
+            await wait_msg.edit_text("❌ Xatolik.")
     except Exception as e:
-        logging.error(f"Xatolik: {e}")
-        await wait_msg.edit_text("❌ Faylni qayta ishlashda xatolik yuz berdi.")
+        await wait_msg.edit_text("❌ Xatolik.")
 
-# Render portini ochish uchun kichik veb-server funksiyasi
 async def handle_web(request):
-    return aiohttp.web.Response(text="Bot is running live!")
+    return web.Response(text="Bot is running!")
 
 async def main():
-    # Veb serverni sozlash (Render muhitidan portni o'qiydi, bo'lmasa 10000)
-    app = aiohttp.web.Application()
+    app = web.Application()
     app.router.add_get("/", handle_web)
-    
     port = int(os.environ.get("PORT", 10000))
-    runner = aiohttp.web.AppRunner(app)
+    runner = web.AppRunner(app)
     await runner.setup()
-    site = aiohttp.web.TCPSite(runner, "0.0.0.0", port)
+    site = web.TCPSite(runner, "0.0.0.0", port)
     
-    # Ham veb serverni, ham botni parallel ishga tushiramiz
     await asyncio.gather(
         site.start(),
         bot.delete_webhook(drop_pending_updates=True),
@@ -94,4 +70,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-    
