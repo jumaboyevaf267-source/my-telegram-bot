@@ -7,7 +7,7 @@ from aiogram.filters import CommandStart
 # web qismini o'zgartirdik:
 from aiohttp import web 
 
-BOT_TOKEN = "8967874048:AAEbexXemCOrLnQm66_GxQGN4GWW2SeZW_I"
+BOT_TOKEN = "8967874048:AAGu5Fh45tVOYNkEbT4ZRdFvZAyXG1Z57nE"
 
 logging.basicConfig(level=logging.INFO)
 
