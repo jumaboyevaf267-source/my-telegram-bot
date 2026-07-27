@@ -7,7 +7,7 @@ from aiogram.filters import CommandStart
 # web qismini o'zgartirdik:
 from aiohttp import web 
 
-BOT_TOKEN = "8967874048:AAGu5Fh45tVOYNkEbT4ZRdFvZAyXG1Z57nE"
+BOT_TOKEN = "8967874048:AAEoJ8ukZ-CXI7O_CzEtFgRb-ofWmEeqkms"
 
 logging.basicConfig(level=logging.INFO)
 
@@ -34,7 +34,7 @@ async def upload_to_storage(file_bytes: bytes) -> str:
 
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
-    await message.answer("Salom! Menga rasm yuboring.")
+    await message.answer("Salom! Menga rasm yuboring. Men uni silkaga aylantirib beraman🤗.")
 
 @dp.message(F.photo | F.animation | F.document.mime_type.startswith("image/"))
 async def handle_media(message: types.Message):
