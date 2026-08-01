@@ -18,7 +18,6 @@ dp = Dispatcher()
 async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> str:
     url = "https://teleg.ph/upload"
     
-    # Kontent turini to'g'ri aniqlaymiz
     if filename.endswith('.gif'):
         content_type = 'image/gif'
     elif filename.endswith('.png'):
@@ -44,7 +43,7 @@ async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> s
 
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
-    await message.answer("Salom! Menga rasm yoki GIF yuboring men uni darhol Telegraph silkasiga aylantirib beraman🤗.")
+    await message.answer("Salom! Menga rasm yoki GIF yuboring, men uni darhol Telegraph silkasiga aylantirib beraman🤗.")
 
 @dp.message(F.photo | F.animation)
 async def handle_media(message: types.Message):
@@ -65,7 +64,7 @@ async def handle_media(message: types.Message):
         
         direct_url = await upload_to_storage(file_bytes.read(), filename)
         if direct_url:
-            await wait_msg.edit_text(f"✅ Marhamat havola: `{direct_url}`", parse_mode="Markdown")
+            await wait_msg.edit_text(f"✅ Havola: `{direct_url}`", parse_mode="Markdown")
         else:
             await wait_msg.edit_text("❌ Faylni yuklashda xatolik. Hajmi 5 MB dan katta bo'lishi mumkin.")
     except Exception as e:
@@ -84,7 +83,7 @@ async def self_ping():
                     logger.info(f"Self-ping yuborildi, status: {response.status}")
             except Exception as e:
                 logger.error(f"Self-ping xatosi: {e}")
-            await asyncio.sleep(600)  # Har 10 daqiqada
+            await asyncio.sleep(600)
 
 async def main():
     app = web.Application()
@@ -94,17 +93,22 @@ async def main():
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
     
+    # Eski ulanishlar va veb-hooklarni tozalaymiz
     await bot.delete_webhook(drop_pending_updates=True)
     
-    await asyncio.gather(
-        site.start(),
-        self_ping(),
-        dp.start_polling(bot)
-    )
+    # Serverni va self-pingni ishga tushiramiz
+    await site.start()
+    asyncio.create_task(self_ping())
+    
+    # Konfliktni oldini oluvchi xavfsiz polling
+    try:
+        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+    finally:
+        await bot.session.close()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Bot to'xtatildi.")
-                    
+    
