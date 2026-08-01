@@ -4,12 +4,12 @@ import os
 import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
-# web qismini o'zgartirdik:
 from aiohttp import web 
 
 BOT_TOKEN = "8967874048:AAEoJ8ukZ-CXI7O_CzEtFgRb-ofWmEeqkms"
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -28,9 +28,8 @@ async def upload_to_storage(file_bytes: bytes) -> str:
                     if text_res.startswith("http"):
                         return text_res.strip()
                 return None
-            except Exception as e:
-        logger.exception(f"Kutilmagan xatolik yuz berdi: {e}")
-        sys.exit(1)
+        except Exception as e:
+            logger.exception(f"Kutilmagan xatolik yuz berdi: {e}")
             return None
 
 @dp.message(CommandStart())
@@ -50,6 +49,7 @@ async def handle_media(message: types.Message):
         else:
             await wait_msg.edit_text("❌ Xatolik.")
     except Exception as e:
+        logger.exception(f"Media qabul qilishda xato: {e}")
         await wait_msg.edit_text("❌ Xatolik.")
 
 async def handle_web(request):
@@ -70,4 +70,8 @@ async def main():
     )
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Bot to'xtatildi.")
+        
