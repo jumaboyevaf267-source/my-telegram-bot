@@ -17,8 +17,17 @@ dp = Dispatcher()
 
 async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> str:
     url = "https://teleg.ph/upload"
+    
+    # Kontent turini to'g'ri aniqlaymiz
+    if filename.endswith('.gif'):
+        content_type = 'image/gif'
+    elif filename.endswith('.png'):
+        content_type = 'image/png'
+    else:
+        content_type = 'image/jpeg'
+
     form = aiohttp.FormData()
-    form.add_field('file', file_bytes, filename=filename, content_type='image/jpeg' if not filename.endswith('.gif') else 'image/gif')
+    form.add_field('file', file_bytes, filename=filename, content_type=content_type)
     
     async with aiohttp.ClientSession() as session:
         try:
@@ -26,16 +35,16 @@ async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> s
                 if response.status == 200:
                     result = await response.json()
                     if isinstance(result, list) and len(result) > 0 and 'src' in result[0]:
-                        image_path = result[0]['src']
-                        return f"https://teleg.ph{image_path}"
+                        return f"https://teleg.ph{result[0]['src']}"
+                logger.error(f"Telegraph xatosi status kodi: {response.status}")
                 return None
         except Exception as e:
-            logger.exception(f"Telegraph'ga yuklashda xato: {e}")
+            logger.exception(f"Yuklashda xatolik yuz berdi: {e}")
             return None
 
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
-    await message.answer("Salom! Menga rasm yoki GIF yuboring (5 MB gacha). Men uni Telegraph silkasiga aylantirib beraman🤗.")
+    await message.answer("Salom! Menga rasm yoki GIF yuboring men uni darhol Telegraph silkasiga aylantirib beraman🤗.")
 
 @dp.message(F.photo | F.animation)
 async def handle_media(message: types.Message):
@@ -48,7 +57,7 @@ async def handle_media(message: types.Message):
             file_id = message.animation.file_id
             filename = 'animation.gif'
         else:
-            await wait_msg.edit_text("❌ Faqat rasm yoki GIF yuboring.")
+            await wait_msg.edit_text("❌ Faqat rasm yoki GIF formatidagi fayl yuboring.")
             return
 
         file = await bot.get_file(file_id)
@@ -56,18 +65,18 @@ async def handle_media(message: types.Message):
         
         direct_url = await upload_to_storage(file_bytes.read(), filename)
         if direct_url:
-            await wait_msg.edit_text(f"✅ Havola: `{direct_url}`", parse_mode="Markdown")
+            await wait_msg.edit_text(f"✅ Marhamat havola: `{direct_url}`", parse_mode="Markdown")
         else:
-            await wait_msg.edit_text("❌ Xatolik yuz berdi. Fayl hajmi 5 MB dan katta bo'lishi mumkin.")
+            await wait_msg.edit_text("❌ Faylni yuklashda xatolik. Hajmi 5 MB dan katta bo'lishi mumkin.")
     except Exception as e:
         logger.exception(f"Media qabul qilishda xato: {e}")
-        await wait_msg.edit_text("❌ Xatolik.")
+        await wait_msg.edit_text("❌ Xatolik yuz berdi.")
 
 async def handle_web(request):
     return web.Response(text="Bot is running!")
 
 async def self_ping():
-    await asyncio.sleep(15)
+    await asyncio.sleep(20)
     async with aiohttp.ClientSession() as session:
         while True:
             try:
@@ -75,7 +84,7 @@ async def self_ping():
                     logger.info(f"Self-ping yuborildi, status: {response.status}")
             except Exception as e:
                 logger.error(f"Self-ping xatosi: {e}")
-            await asyncio.sleep(600)
+            await asyncio.sleep(600)  # Har 10 daqiqada
 
 async def main():
     app = web.Application()
@@ -98,4 +107,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Bot to'xtatildi.")
-        
+                    
