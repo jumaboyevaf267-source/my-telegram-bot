@@ -4,10 +4,15 @@ import os
 import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web 
 
 BOT_TOKEN = "8967874048:AAHIPcxEe736SozG0RFktU1iNce3tgy_rW8"
-RENDER_URL = "https://my-telegram-bot-1-7jlg.onrender.com"
+RENDER_URL = "https://my-telegram-bot-1-id6z.onrender.com"
+
+# Webhook sozlamalari
+WEBHOOK_PATH = f"/{BOT_TOKEN}"
+WEBHOOK_URL = f"{RENDER_URL}{WEBHOOK_PATH}"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -43,7 +48,7 @@ async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> s
 
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
-    await message.answer("Salom! Menga rasm yoki GIF yuboring, men uni darhol Telegraph silkasiga aylantirib beraman🤗.")
+    await message.answer("Salom! Menga rasm yoki GIF yuboring. Men uni darhol Telegraph silkasiga aylantirib beraman🤗.")
 
 @dp.message(F.photo | F.animation)
 async def handle_media(message: types.Message):
@@ -71,44 +76,26 @@ async def handle_media(message: types.Message):
         logger.exception(f"Media qabul qilishda xato: {e}")
         await wait_msg.edit_text("❌ Xatolik yuz berdi.")
 
-async def handle_web(request):
-    return web.Response(text="Bot is running!")
+async def on_startup(bot: Bot):
+    await bot.set_webhook(WEBHOOK_URL)
+    logger.info(f"Webhook o'rnatildi: {WEBHOOK_URL}")
 
-async def self_ping():
-    await asyncio.sleep(20)
-    async with aiohttp.ClientSession() as session:
-        while True:
-            try:
-                async with session.get(RENDER_URL) as response:
-                    logger.info(f"Self-ping yuborildi, status: {response.status}")
-            except Exception as e:
-                logger.error(f"Self-ping xatosi: {e}")
-            await asyncio.sleep(600)
-
-async def main():
+def main():
     app = web.Application()
-    app.router.add_get("/", handle_web)
+    
+    # Webhook handler'ni aiohttp ilovasiga ulaymiz
+    webhook_requests_handler = SimpleRequestHandler(
+        dispatcher=dp,
+        bot=bot,
+    )
+    webhook_requests_handler.register(app, path=WEBHOOK_PATH)
+    setup_application(app, dp, bot=bot)
+    
+    dp.startup.register(on_startup)
+    
     port = int(os.environ.get("PORT", 10000))
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port)
-    
-    # Eski ulanishlar va veb-hooklarni tozalaymiz
-    await bot.delete_webhook(drop_pending_updates=True)
-    
-    # Serverni va self-pingni ishga tushiramiz
-    await site.start()
-    asyncio.create_task(self_ping())
-    
-    # Konfliktni oldini oluvchi xavfsiz polling
-    try:
-        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
-    finally:
-        await bot.session.close()
+    web.run_app(app, host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Bot to'xtatildi.")
-    
+    main()
+        
