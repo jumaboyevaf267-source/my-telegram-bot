@@ -6,7 +6,8 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiohttp import web 
 
-BOT_TOKEN = "8967874048:AAHIPcxEe736SozG0RFktU1iNce3tgy_rW8"
+BOT_TOKEN = "8967874048:AAHIPcxEe736SozG0RFktU1iNce3tgy_rW8"  # Tokeningizni shu yerga yozing
+RENDER_URL = "https://my-telegram-bot-1-7jlg.onrender.com"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,24 +37,44 @@ async def upload_to_storage(file_bytes: bytes) -> str:
 async def start_cmd(message: types.Message):
     await message.answer("Salom! Menga rasm yuboring. Men uni silkaga aylantirib beraman🤗.")
 
-@dp.message(F.photo | F.animation | F.document.mime_type.startswith("image/"))
+@dp.message(F.photo | F.animation)
 async def handle_media(message: types.Message):
     wait_msg = await message.answer("Yuklanmoqda...")
     try:
-        file_id = message.photo[-1].file_id if message.photo else (message.animation.file_id if message.animation else message.document.file_id)
+        if message.photo:
+            file_id = message.photo[-1].file_id
+        elif message.animation:
+            file_id = message.animation.file_id
+        else:
+            await wait_msg.edit_text("❌ Faqat rasm yoki animatsiya yuboring.")
+            return
+
         file = await bot.get_file(file_id)
         file_bytes = await bot.download_file(file.file_path)
+        
         direct_url = await upload_to_storage(file_bytes.read())
         if direct_url:
-            await wait_msg.edit_text(f"✅ Havola: `{direct_url}`", parse_mode="Markdown")
+            await wait_msg.edit_text(f"✅ Marhamat havola: `{direct_url}`", parse_mode="Markdown")
         else:
-            await wait_msg.edit_text("❌ Xatolik.")
+            await wait_msg.edit_text("❌ Xatolik yuz berdi.")
     except Exception as e:
         logger.exception(f"Media qabul qilishda xato: {e}")
         await wait_msg.edit_text("❌ Xatolik.")
 
 async def handle_web(request):
     return web.Response(text="Bot is running!")
+
+# Har 10 daqiqada o'ziga so'rov yuborib turuvchi funksiya
+async def self_ping():
+    await asyncio.sleep(15)  # Server to'liq ishga tushishi uchun biroz kutaiz
+    async with aiohttp.ClientSession() as session:
+        while True:
+            try:
+                async with session.get(RENDER_URL) as response:
+                    logger.info(f"Self-ping yuborildi,status: {response.status}")
+            except Exception as e:
+                logger.error(f"Self-ping xatosi: {e}")
+            await asyncio.sleep(600)  # 600 soniya = 10 daqiqa
 
 async def main():
     app = web.Application()
@@ -63,9 +84,11 @@ async def main():
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
     
+    await bot.delete_webhook(drop_pending_updates=True)
+    
     await asyncio.gather(
         site.start(),
-        bot.delete_webhook(drop_pending_updates=True),
+        self_ping(),  # O'zini o'zi ping qilishni ishga tushiramiz
         dp.start_polling(bot)
     )
 
