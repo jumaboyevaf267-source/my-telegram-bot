@@ -28,8 +28,9 @@ async def upload_to_storage(file_bytes: bytes) -> str:
                     if text_res.startswith("http"):
                         return text_res.strip()
                 return None
-        except Exception as e:
-            logging.error(f"Tarmoq xatoligi: {e}")
+            except Exception as e:
+        logger.exception(f"Kutilmagan xatolik yuz berdi: {e}")
+        sys.exit(1)
             return None
 
 @dp.message(CommandStart())
