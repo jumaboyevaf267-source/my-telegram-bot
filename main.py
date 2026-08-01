@@ -33,7 +33,22 @@ async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> s
     form = aiohttp.FormData()
     form.add_field('file', file_bytes, filename=filename, content_type=content_type)
     
-    async with aiohttp.ClientSession() as session:
+    async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> str:
+    url = "https://teleg.ph/upload"
+    
+    if filename.endswith('.gif'):
+        content_type = 'image/gif'
+    elif filename.endswith('.png'):
+        content_type = 'image/png'
+    else:
+        content_type = 'image/jpeg'
+
+    form = aiohttp.FormData()
+    form.add_field('file', file_bytes, filename=filename, content_type=content_type)
+    
+    # SSL sertifikat xatosini chetlab o'tish uchun connector qo'shamiz
+    conn = aiohttp.TCPConnector(ssl=False)
+    async with aiohttp.ClientSession(connector=conn) as session:
         try:
             async with session.post(url, data=form) as response:
                 if response.status == 200:
@@ -45,6 +60,7 @@ async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> s
         except Exception as e:
             logger.exception(f"Yuklashda xatolik yuz berdi: {e}")
             return None
+            
 
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
