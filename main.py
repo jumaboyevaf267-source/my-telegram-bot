@@ -1,117 +1,154 @@
-import logging
 import asyncio
+import logging
 import os
+
 import aiohttp
-from aiogram import Bot, Dispatcher, types, F
+from aiohttp import web
+from aiogram import Bot, Dispatcher, F
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import CommandStart
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
-from aiohttp import web 
+from aiogram.types import Message
+from dotenv import load_dotenv
 
-BOT_TOKEN = "8967874048:AAHIPcxEe736SozG0RFktU1iNce3tgy_rW8"
-RENDER_URL = "https://my-telegram-bot-1-id6z.onrender.com"
+load_dotenv()
 
-# Webhook sozlamalari
-WEBHOOK_PATH = f"/{BOT_TOKEN}"
-WEBHOOK_URL = f"{RENDER_URL}{WEBHOOK_PATH}"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(
+    token=BOT_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
+)
+
 dp = Dispatcher()
 
-async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> str:
-    url = "https://teleg.ph/upload"
-    
-    if filename.endswith('.gif'):
-        content_type = 'image/gif'
-    elif filename.endswith('.png'):
-        content_type = 'image/png'
+
+# ===================== Telegraph =====================
+
+async def upload_to_telegraph(file_bytes: bytes, filename: str):
+
+    url = "https://telegra.ph/upload"
+
+    if filename.endswith(".gif"):
+        content_type = "image/gif"
+    elif filename.endswith(".png"):
+        content_type = "image/png"
     else:
-        content_type = 'image/jpeg'
+        content_type = "image/jpeg"
 
     form = aiohttp.FormData()
-    form.add_field('file', file_bytes, filename=filename, content_type=content_type)
-    
-    async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> str:
-    url = "https://teleg.ph/upload"
-    
-    if filename.endswith('.gif'):
-        content_type = 'image/gif'
-    elif filename.endswith('.png'):
-        content_type = 'image/png'
-    else:
-        content_type = 'image/jpeg'
+    form.add_field(
+        "file",
+        file_bytes,
+        filename=filename,
+        content_type=content_type
+    )
 
-    form = aiohttp.FormData()
-    form.add_field('file', file_bytes, filename=filename, content_type=content_type)
-    
-    # SSL sertifikat xatosini chetlab o'tish uchun connector qo'shamiz
-    conn = aiohttp.TCPConnector(ssl=False)
-    async with aiohttp.ClientSession(connector=conn) as session:
-        try:
-            async with session.post(url, data=form) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    if isinstance(result, list) and len(result) > 0 and 'src' in result[0]:
-                        return f"https://teleg.ph{result[0]['src']}"
-                logger.error(f"Telegraph xatosi status kodi: {response.status}")
+    async with aiohttp.ClientSession() as session:
+
+        async with session.post(url, data=form) as response:
+
+            if response.status != 200:
                 return None
-        except Exception as e:
-            logger.exception(f"Yuklashda xatolik yuz berdi: {e}")
+
+            data = await response.json()
+
+            if isinstance(data, list):
+                return "https://telegra.ph" + data[0]["src"]
+
             return None
-            
+
+
+# ===================== Handlers =====================
 
 @dp.message(CommandStart())
-async def start_cmd(message: types.Message):
-    await message.answer("Salom! Menga rasm yoki GIF yuboring. Men uni darhol Telegraph silkasiga aylantirib beraman🤗.")
+async def start(message: Message):
+
+    await message.answer(
+        "👋 Salom!\n\n"
+        "Menga rasm yoki GIF yuboring.\n"
+        "Men uni Telegraph havolasiga aylantirib beraman."
+    )
+
 
 @dp.message(F.photo | F.animation)
-async def handle_media(message: types.Message):
-    wait_msg = await message.answer("Yuklanmoqda...")
+async def media(message: Message):
+
+    wait = await message.answer("⏳ Yuklanmoqda...")
+
     try:
+
         if message.photo:
             file_id = message.photo[-1].file_id
-            filename = 'image.jpg'
-        elif message.animation:
+            filename = "image.jpg"
+
+        else:
             file_id = message.animation.file_id
-            filename = 'animation.gif'
-        else:
-            await wait_msg.edit_text("❌ Faqat rasm yoki GIF formatidagi fayl yuboring.")
-            return
+            filename = "animation.gif"
 
-        file = await bot.get_file(file_id)
-        file_bytes = await bot.download_file(file.file_path)
-        
-        direct_url = await upload_to_storage(file_bytes.read(), filename)
-        if direct_url:
-            await wait_msg.edit_text(f"✅ Havola: `{direct_url}`", parse_mode="Markdown")
+        telegram_file = await bot.get_file(file_id)
+
+        file = await bot.download_file(telegram_file.file_path)
+
+        url = await upload_to_telegraph(
+            file.read(),
+            filename
+        )
+
+        if url:
+            await wait.edit_text(f"✅ Havola:\n`{url}`")
         else:
-            await wait_msg.edit_text("❌ Faylni yuklashda xatolik. Hajmi 5 MB dan katta bo'lishi mumkin.")
+            await wait.edit_text("❌ Yuklashda xatolik.")
+
     except Exception as e:
-        logger.exception(f"Media qabul qilishda xato: {e}")
-        await wait_msg.edit_text("❌ Xatolik yuz berdi.")
 
-async def on_startup(bot: Bot):
-    await bot.set_webhook(WEBHOOK_URL)
-    logger.info(f"Webhook o'rnatildi: {WEBHOOK_URL}")
+        logging.exception(e)
 
-def main():
+        await wait.edit_text("❌ Xatolik yuz berdi.")
+
+
+# ===================== Health Check =====================
+
+async def health(request):
+    return web.Response(text="Bot is running!")
+
+
+async def start_web():
+
     app = web.Application()
-    
-    # Webhook handler'ni aiohttp ilovasiga ulaymiz
-    webhook_requests_handler = SimpleRequestHandler(
-        dispatcher=dp,
-        bot=bot,
+
+    app.router.add_get("/", health)
+
+    runner = web.AppRunner(app)
+
+    await runner.setup()
+
+    port = int(os.getenv("PORT", 10000))
+
+    site = web.TCPSite(
+        runner,
+        "0.0.0.0",
+        port
     )
-    webhook_requests_handler.register(app, path=WEBHOOK_PATH)
-    setup_application(app, dp, bot=bot)
-    
-    dp.startup.register(on_startup)
-    
-    port = int(os.environ.get("PORT", 10000))
-    web.run_app(app, host="0.0.0.0", port=port)
+
+    await site.start()
+
+    logging.info(f"Web server started: {port}")
+
+
+# ===================== Main =====================
+
+async def main():
+
+    await start_web()
+
+    await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
-    main()
-        
+    asyncio.run(main())
