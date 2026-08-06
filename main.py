@@ -5,6 +5,7 @@ import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from aiogram.exceptions import TelegramRetryAfter
 from aiohttp import web 
 
 BOT_TOKEN = "8967874048:AAHyvBGewqXjANLm6gTtlXLI32XSjmHQ2uI"
@@ -71,7 +72,6 @@ async def handle_media(message: types.Message):
 async def handle_web(request):
     return web.Response(text="Bot is running!")
 
-# Render'ni har 10 daqiqada ping qilib uxlab qolishidan saqlaydi
 async def self_ping():
     await asyncio.sleep(20)
     async with aiohttp.ClientSession() as session:
@@ -81,13 +81,23 @@ async def self_ping():
                     logger.info(f"Self-ping status: {response.status}")
             except Exception as e:
                 logger.error(f"Self-ping xatosi: {e}")
-            await asyncio.sleep(600)  # Har 600 soniyada (10 daqiqa)
+            await asyncio.sleep(600)
 
 async def on_startup(bot: Bot):
-    await bot.set_webhook(WEBHOOK_URL)
-    # Ping jarayonini fonda ishga tushirish
+    # Flood control chekloviga tushsa kutib turib qayta o'rnatish
+    while True:
+        try:
+            await bot.set_webhook(WEBHOOK_URL)
+            logger.info(f"Webhook o'rnatildi: {WEBHOOK_URL}")
+            break
+        except TelegramRetryAfter as e:
+            logger.warning(f"Telegram Limit keldi: {e.retry_after} soniya kutilmoqda...")
+            await asyncio.sleep(e.retry_after + 1)
+        except Exception as e:
+            logger.error(f"Webhook o'rnatishda kutilmagan xato: {e}")
+            break
+
     asyncio.create_task(self_ping())
-    logger.info(f"Webhook o'rnatildi: {WEBHOOK_URL}")
 
 def main():
     app = web.Application()
@@ -107,4 +117,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+                            
