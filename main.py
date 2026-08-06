@@ -7,7 +7,7 @@ from aiogram.filters import CommandStart
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web 
 
-BOT_TOKEN = "8967874048:AAHTC9TcuYLOpjAOVmBdATwyf7vj5puofO4"
+BOT_TOKEN = "8967874048:AAHyvBGewqXjANLm6gTtlXLI32XSjmHQ2uI"
 RENDER_URL = "https://my-telegram-bot-1-oeq1.onrender.com"
 
 WEBHOOK_PATH = f"/bot/{BOT_TOKEN}"
@@ -25,7 +25,6 @@ async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> s
     form.add_field('reqtype', 'fileupload')
     form.add_field('fileToUpload', file_bytes, filename=filename)
     
-    # DeprecationWarning oldini olish uchun ssl=False ishlatamiz
     conn = aiohttp.TCPConnector(ssl=False)
     async with aiohttp.ClientSession(connector=conn) as session:
         try:
@@ -72,8 +71,22 @@ async def handle_media(message: types.Message):
 async def handle_web(request):
     return web.Response(text="Bot is running!")
 
+# Render'ni har 10 daqiqada ping qilib uxlab qolishidan saqlaydi
+async def self_ping():
+    await asyncio.sleep(20)
+    async with aiohttp.ClientSession() as session:
+        while True:
+            try:
+                async with session.get(RENDER_URL) as response:
+                    logger.info(f"Self-ping status: {response.status}")
+            except Exception as e:
+                logger.error(f"Self-ping xatosi: {e}")
+            await asyncio.sleep(600)  # Har 600 soniyada (10 daqiqa)
+
 async def on_startup(bot: Bot):
     await bot.set_webhook(WEBHOOK_URL)
+    # Ping jarayonini fonda ishga tushirish
+    asyncio.create_task(self_ping())
     logger.info(f"Webhook o'rnatildi: {WEBHOOK_URL}")
 
 def main():
@@ -94,4 +107,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-            
+    
