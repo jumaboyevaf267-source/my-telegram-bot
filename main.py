@@ -25,7 +25,8 @@ async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> s
     form.add_field('reqtype', 'fileupload')
     form.add_field('fileToUpload', file_bytes, filename=filename)
     
-    conn = aiohttp.TCPConnector(verify_ssl=False)
+    # DeprecationWarning oldini olish uchun ssl=False ishlatamiz
+    conn = aiohttp.TCPConnector(ssl=False)
     async with aiohttp.ClientSession(connector=conn) as session:
         try:
             async with session.post(url, data=form) as response:
@@ -93,3 +94,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+            
