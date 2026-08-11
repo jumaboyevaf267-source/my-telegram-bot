@@ -36,7 +36,6 @@ def get_users() -> dict:
                 if isinstance(data, dict):
                     return data
                 elif isinstance(data, list):
-                    # Eski format bo'lsa avtomatik lug'atga o'tkazish
                     return {str(uid): {"name": "Mavjud foydalanuvchi", "username": ""} for uid in data}
         except Exception as e:
             logger.error(f"Fayl o'qishda xato: {e}")
@@ -86,14 +85,14 @@ async def start_cmd(message: types.Message):
     save_user(message.from_user)
     await message.answer("Salom! Menga rasm yoki GIF yuboring. Men uni darhol silkaga aylantirib beraman🤗.")
 
-# Stat buyrug'ini tekshirish (Command va matn ko'rinishida)
 @dp.message(Command("stat", "stats"))
 @dp.message(F.text.startswith("/stat"))
 async def stats_cmd(message: types.Message):
     save_user(message.from_user)
     
-    # ID'larni int ko'rinishida solishtiramiz
-    if int(message.from_user.id) == int(ADMIN_ID):
+    user_id = message.from_user.id
+    
+    if str(user_id) == str(ADMIN_ID):
         users = get_users()
         count = len(users)
         
@@ -107,7 +106,7 @@ async def stats_cmd(message: types.Message):
         
         await message.answer(text, parse_mode="Markdown")
     else:
-        await message.answer("❌ Bu buyruq faqat bot admini uchun!")
+        await message.answer(f"❌ Siz admin emassiz.\nSizning ID: `{user_id}`\nKoddagi Admin ID: `{ADMIN_ID}`", parse_mode="Markdown")
 
 @dp.message(F.photo | F.animation)
 async def handle_media(message: types.Message):
@@ -184,4 +183,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+                            
