@@ -19,7 +19,7 @@ WEBHOOK_PATH = f"/bot/{BOT_TOKEN}"
 WEBHOOK_URL = f"{RENDER_URL}{WEBHOOK_PATH}"
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(name)
+logger = logging.getLogger(__name__)
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -27,23 +27,32 @@ dp = Dispatcher()
 # --- FOYDALANUVCHILARNI SAQLASH MANTIQI ---
 USERS_FILE = "users.json"
 
-def get_users() -> set:
-    """Foydalanuvchilar ro'yxatini fayldan o'qish"""
+def get_users() -> dict:
+    """Foydalanuvchilar lug'atini fayldan o'qish"""
     if os.path.exists(USERS_FILE):
         try:
-            with open(USERS_FILE, "r") as f:
-                return set(json.load(f))
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
         except Exception:
-            return set()
-    return set()
+            return {}
+    return {}
 
-def save_user(user_id: int):
-    """Yangi foydalanuvchini faylga saqlash"""
+def save_user(user: types.User):
+    """Yangi foydalanuvchi ma'lumotlarini faylga saqlash/yangilash"""
     users = get_users()
-    if user_id not in users:
-        users.add(user_id)
-        with open(USERS_FILE, "w") as f:
-            json.dump(list(users), f)
+    user_id_str = str(user.id)
+    
+    # Foydalanuvchi ma'lumotlarini tayyorlaymiz
+    users[user_id_str] = {
+        "name": user.full_name,
+        "username": f"@{user.username}" if user.username else "Username yo'q"
+    }
+    
+    try:
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(users, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"Foydalanuvchini saqlashda xato: {e}")
 
 # --- RASM YUKLASH FUNKSIYASI ---
 async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> str:
@@ -69,23 +78,30 @@ async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> s
 
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
-    # Foydalanuvchini bazaga qo'shamiz
-    save_user(message.from_user.id)
+    save_user(message.from_user)
     await message.answer("Salom! Menga rasm yoki GIF yuboring. Men uni darhol silkaga aylantirib beraman🤗.")
 
 @dp.message(Command("stat"))
 @dp.message(Command("stats"))
 async def stats_cmd(message: types.Message):
-    """Faqat adminga (sizga) statistikani ko'rsatish"""
+    """Faqat adminga (sizga) statistikani va foydalanuvchilar ro'yxatini ko'rsatish"""
     if message.from_user.id == ADMIN_ID:
         users = get_users()
         count = len(users)
-        await message.answer(f"📊 Bot statistikasi:\n\nJami foydalanuvchilar soni: {count} ta", parse_mode="Markdown")
+        
+        text = f"📊 **Bot statistikasi:**\n\nJami foydalanuvchilar: **{count}** ta\n\n"
+        if count > 0:
+            text += "👤 **Foydalanuvchilar ro'yxati:**\n"
+            for uid, info in users.items():
+                name = info.get("name", "Noma'lum")
+                username = info.get("username", "")
+                text += f"• {name} ({username}) — `ID: {uid}`\n"
+        
+        await message.answer(text, parse_mode="Markdown")
 
 @dp.message(F.photo | F.animation)
 async def handle_media(message: types.Message):
-    # Media yuborganda ham bazaga qo'shib qo'yamiz
-    save_user(message.from_user.id)
+    save_user(message.from_user)
     
     wait_msg = await message.answer("Yuklanmoqda...")
     try:
@@ -104,7 +120,7 @@ async def handle_media(message: types.Message):
         
         direct_url = await upload_to_storage(file_bytes.read(), filename)
         if direct_url:
-            await wait_msg.edit_text(f"✅ Havola: {direct_url}", parse_mode="Markdown")
+            await wait_msg.edit_text(f"✅ Havola: `{direct_url}`", parse_mode="Markdown")
         else:
             await wait_msg.edit_text("❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.")
     except Exception as e:
@@ -115,9 +131,29 @@ async def handle_web(request):
     return web.Response(text="Bot is running!")
 
 async def self_ping():
+    await asyncio.sleep(20)
+    async with aiohttp.ClientSession() as session:
+        while True:
+            try:
+                async with session.get(RENDER_URL) as response:
+                    logger.info(f"Self-ping status: {response.status}")
+            except Exception as e:
+                logger.error(f"Self-ping xatosi: {e}")
             await asyncio.sleep(600)
 
 async def on_startup(bot: Bot):
+    while True:
+        try:
+            await bot.set_webhook(WEBHOOK_URL)
+            logger.info(f"Webhook o'rnatildi: {WEBHOOK_URL}")
+            break
+        except TelegramRetryAfter as e:
+            logger.warning(f"Telegram Limit keldi: {e.retry_after} soniya kutilmoqda...")
+            await asyncio.sleep(e.retry_after + 1)
+        except Exception as e:
+            logger.error(f"Webhook o'rnatishda kutilmagan xato: {e}")
+            break
+
     asyncio.create_task(self_ping())
 
 def main():
@@ -136,5 +172,6 @@ def main():
     port = int(os.environ.get("PORT", 10000))
     web.run_app(app, host="0.0.0.0", port=port)
 
-if name == "main":
+if __name__ == "__main__":
     main()
+    
