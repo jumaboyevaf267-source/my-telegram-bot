@@ -32,8 +32,14 @@ def get_users() -> dict:
     if os.path.exists(USERS_FILE):
         try:
             with open(USERS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return data
+                elif isinstance(data, list):
+                    # Eski format bo'lsa avtomatik lug'atga o'tkazish
+                    return {str(uid): {"name": "Mavjud foydalanuvchi", "username": ""} for uid in data}
+        except Exception as e:
+            logger.error(f"Fayl o'qishda xato: {e}")
             return {}
     return {}
 
@@ -42,7 +48,6 @@ def save_user(user: types.User):
     users = get_users()
     user_id_str = str(user.id)
     
-    # Foydalanuvchi ma'lumotlarini tayyorlaymiz
     users[user_id_str] = {
         "name": user.full_name,
         "username": f"@{user.username}" if user.username else "Username yo'q"
@@ -81,11 +86,14 @@ async def start_cmd(message: types.Message):
     save_user(message.from_user)
     await message.answer("Salom! Menga rasm yoki GIF yuboring. Men uni darhol silkaga aylantirib beraman🤗.")
 
-@dp.message(Command("stat"))
-@dp.message(Command("stats"))
+# Stat buyrug'ini tekshirish (Command va matn ko'rinishida)
+@dp.message(Command("stat", "stats"))
+@dp.message(F.text.startswith("/stat"))
 async def stats_cmd(message: types.Message):
-    """Faqat adminga (sizga) statistikani va foydalanuvchilar ro'yxatini ko'rsatish"""
-    if message.from_user.id == ADMIN_ID:
+    save_user(message.from_user)
+    
+    # ID'larni int ko'rinishida solishtiramiz
+    if int(message.from_user.id) == int(ADMIN_ID):
         users = get_users()
         count = len(users)
         
@@ -98,6 +106,8 @@ async def stats_cmd(message: types.Message):
                 text += f"• {name} ({username}) — `ID: {uid}`\n"
         
         await message.answer(text, parse_mode="Markdown")
+    else:
+        await message.answer("❌ Bu buyruq faqat bot admini uchun!")
 
 @dp.message(F.photo | F.animation)
 async def handle_media(message: types.Message):
