@@ -1,15 +1,19 @@
 import logging
 import asyncio
 import os
+import json
 import aiohttp
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiogram.exceptions import TelegramRetryAfter
 from aiohttp import web 
 
 BOT_TOKEN = "8967874048:AAHyvBGewqXjANLm6gTtlXLI32XSjmHQ2uI"
 RENDER_URL = "https://my-telegram-bot-1-oeq1.onrender.com"
+
+# Sizning Telegram ID ingiz
+ADMIN_ID = 8095161057
 
 WEBHOOK_PATH = f"/bot/{BOT_TOKEN}"
 WEBHOOK_URL = f"{RENDER_URL}{WEBHOOK_PATH}"
@@ -19,6 +23,31 @@ logger = logging.getLogger(__name__)
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
+
+# --- FOYDALANUVCHILARNI SAQLASH MANTIQI ---
+USERS_FILE = "users.json"
+
+def get_users() -> set:
+    """Foydalanuvchilar ro'yxatini fayldan o'qish"""
+    if os.path.exists(USERS_FILE):
+        try:
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
+                return set(json.load(f))
+        except Exception as e:
+            logger.error(f"Fayl o'qishda xato: {e}")
+            return set()
+    return set()
+
+def save_user(user_id: int):
+    """Yangi foydalanuvchini faylga saqlash"""
+    users = get_users()
+    if user_id not in users:
+        users.add(user_id)
+        try:
+            with open(USERS_FILE, "w", encoding="utf-8") as f:
+                json.dump(list(users), f)
+        except Exception as e:
+            logger.error(f"Foydalanuvchini saqlashda xato: {e}")
 
 # --- RASM YUKLASH FUNKSIYASI ---
 async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> str:
@@ -44,10 +73,21 @@ async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> s
 
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
+    save_user(message.from_user.id)
     await message.answer("Salom! Menga rasm yoki GIF yuboring. Men uni darhol silkaga aylantirib beraman🤗.")
+
+@dp.message(Command("stat", "stats"))
+async def stats_cmd(message: types.Message):
+    """Faqat adminga (sizga) statistikani ko'rsatish"""
+    if message.from_user.id == ADMIN_ID:
+        users = get_users()
+        count = len(users)
+        await message.answer(f"📊 **Bot statistikasi:**\n\nJami foydalanuvchilar: **{count}** ta", parse_mode="Markdown")
 
 @dp.message(F.photo | F.animation)
 async def handle_media(message: types.Message):
+    save_user(message.from_user.id)
+    
     wait_msg = await message.answer("Yuklanmoqda...")
     try:
         if message.photo:
@@ -119,3 +159,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+        
