@@ -20,43 +20,28 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# --- RASM YUKLASH FUNKSIYASI ---
+# --- RASM YUKLASH FUNKSIYASI (Faqat Catbox - 3 ta qayta urinish bilan) ---
 async def upload_to_storage(file_bytes: bytes, filename: str = 'image.jpg') -> str:
-    timeout = aiohttp.ClientTimeout(total=15)
+    url_catbox = "https://catbox.moe/user/api.php"
+    timeout = aiohttp.ClientTimeout(total=25)
     
-    # 1-urinish: Catbox.moe
-    try:
-        url_catbox = "https://catbox.moe/user/api.php"
-        form_catbox = aiohttp.FormData()
-        form_catbox.add_field('reqtype', 'fileupload')
-        form_catbox.add_field('fileToUpload', file_bytes, filename=filename)
-        
-        conn1 = aiohttp.TCPConnector(ssl=False)
-        async with aiohttp.ClientSession(connector=conn1, timeout=timeout) as session1:
-            async with session1.post(url_catbox, data=form_catbox) as response:
-                if response.status == 200:
-                    text_res = await response.text()
-                    if text_res.startswith("http"):
-                        return text_res.strip()
-    except Exception as e:
-        logger.warning(f"Catbox yuklashda xato: {e}. Zaxira server sinab ko'rilmoqda...")
-
-    # 2-urinish (Zaxira): Tmpfiles.org
-    try:
-        url_tmp = "https://tmpfiles.org/api/v1/upload"
-        form_tmp = aiohttp.FormData()
-        form_tmp.add_field('file', file_bytes, filename=filename)
-        
-        conn2 = aiohttp.TCPConnector(ssl=False)
-        async with aiohttp.ClientSession(connector=conn2, timeout=timeout) as session2:
-            async with session2.post(url_tmp, data=form_tmp) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    file_url = data.get("data", {}).get("url")
-                    if file_url:
-                        return file_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
-    except Exception as e:
-        logger.error(f"Tmpfiles yuklashda ham xato: {e}")
+    # Catbox ishlamay qolsa, 3 marta qayta urinib ko'riladi
+    for attempt in range(1, 4):
+        try:
+            form = aiohttp.FormData()
+            form.add_field('reqtype', 'fileupload')
+            form.add_field('fileToUpload', file_bytes, filename=filename)
+            
+            conn = aiohttp.TCPConnector(ssl=False)
+            async with aiohttp.ClientSession(connector=conn, timeout=timeout) as session:
+                async with session.post(url_catbox, data=form) as response:
+                    if response.status == 200:
+                        text_res = await response.text()
+                        if text_res.startswith("http"):
+                            return text_res.strip()
+        except Exception as e:
+            logger.warning(f"Catbox yuklashda {attempt}-urinishda xato: {e}")
+            await asyncio.sleep(1)
             
     return None
 
@@ -140,3 +125,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+            
