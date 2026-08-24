@@ -15,7 +15,7 @@ WEBHOOK_PATH = f"/bot/{BOT_TOKEN}"
 WEBHOOK_URL = f"{RENDER_URL}{WEBHOOK_PATH}"
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(name)
+logger = logging.getLogger(__name__)
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -65,7 +65,7 @@ async def handle_media(message: types.Message):
         
         direct_url = await upload_to_storage(file_bytes.read(), filename)
         if direct_url:
-            await wait_msg.edit_text(f"✅ Havola: {direct_url}", parse_mode="Markdown")
+            await wait_msg.edit_text(f"✅ Havola: `{direct_url}`", parse_mode="Markdown")
         else:
             await wait_msg.edit_text("❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.")
     except Exception as e:
@@ -117,5 +117,6 @@ def main():
     port = int(os.environ.get("PORT", 10000))
     web.run_app(app, host="0.0.0.0", port=port)
 
-if name == "main":
+if __name__ == "__main__":
     main()
+            
